@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
+import chardet
 
 st.title("Neoden YY1 SMD Dizgi Makinesi İçin Dosya Dönüştürücü")
 
@@ -17,10 +18,41 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+def read_flexible_csv(uploaded_file):
+    # Dosyanın ilk 1024 baytını oku ve ayraç ile encoding tespit et
+    sample = uploaded_file.read(1024)
+    uploaded_file.seek(0)
+    encoding = chardet.detect(sample)['encoding'] or 'utf-8'
+    sample_str = sample.decode(encoding, errors='replace')
+    # Ayraç tespiti
+    delimiter = ','
+    if sample_str.count(';') > sample_str.count(','):
+        delimiter = ';'
+    # DataFrame'i oku
+    df = pd.read_csv(uploaded_file, delimiter=delimiter, encoding=encoding, dtype=str, quotechar='"')
+    # Tüm hücrelerde baştaki ve sondaki boşlukları temizle
+    df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    # Koordinatlarda mm varsa temizle ve ondalık karakteri düzelt
+    for col in df.columns:
+        if any(key in col.lower() for key in ['mid x', 'mid y']):
+            df[col] = df[col].astype(str).str.replace('mm', '', case=False, regex=False)
+            # Eğer ondalık virgül varsa noktaya çevir
+            df[col] = df[col].str.replace(',', '.', regex=False)
+            # Sayıya çevir
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    # Diğer ondalıklı sayılar için de aynı işlemi uygula (ör: Pick Height, Place Height)
+    for col in df.columns:
+        if any(key in col.lower() for key in ['height', 'speed']):
+            df[col] = df[col].astype(str).str.replace(',', '.', regex=False)
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    # Geri kalan tüm hücrelerde baştaki ve sondaki çift tırnakları temizle
+    df = df.applymap(lambda x: x[1:-1] if isinstance(x, str) and x.startswith('"') and x.endswith('"') else x)
+    return df
+
 uploaded_file = st.file_uploader("CSV dosyanızı yükleyin", type=["csv"])
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+    df = read_flexible_csv(uploaded_file)
     # Boş satırları (özellikle başlık altındaki) filtrele
     df = df.dropna(subset=["Comment", "Footprint"])
     df = df[(df["Comment"].astype(str).str.strip() != "") & (df["Footprint"].astype(str).str.strip() != "")]
@@ -35,7 +67,7 @@ if uploaded_file:
     unique_parts["Skip"] = 0
     st.write("### Komponent Listesi")
     # Kolon genişliklerini ayarlıyoruz: [parça, feeder, nozzle, pick, place, move, mode, skip]
-    cols = st.columns([3, 1, 1, 2, 2, 2, 1, 1])
+    cols = st.columns([4.5, 1, 1, 2, 2, 2, 1, 1])
     headers = [
         "Parça Bilgisi",
         "Feeder",
@@ -50,7 +82,7 @@ if uploaded_file:
         with cols[i]:
             st.markdown(f"<div style='text-align:center; font-weight:bold; white-space:nowrap; '>{h}</div>", unsafe_allow_html=True)
     for idx, row in unique_parts.iterrows():
-        cols = st.columns([3, 1, 1, 2, 2, 2, 1, 1])
+        cols = st.columns([4.5, 1, 1, 2, 2, 2, 1, 1])  # Parça bilgisi sütunu daha geniş
         with cols[0]:
             st.markdown(
                 f"<div style='display:flex; align-items:center; height:38px; padding-left:4px; margin-top:30px; font-weight:bold; border:1px solid #222; border-radius:4px; background-color:#111; color:#fff'>{row['Comment']} / {row['Footprint']}</div>",
@@ -59,7 +91,7 @@ if uploaded_file:
         with cols[1]:
             feeder = st.text_input('', key=f'feeder_{idx}', max_chars=3)
         with cols[2]:
-            nozzle = st.text_input('', key=f'nozzle_{idx}', max_chars=3)
+            nozzle = st.text_input('', key=f'nozzle_{idx}', max_chars=1)
         with cols[3]:
             pick_height = st.text_input('', key=f'pick_{idx}')
         with cols[4]:
@@ -70,8 +102,26 @@ if uploaded_file:
             mode = st.text_input('', key=f'mode_{idx}')
         with cols[7]:
             skip = st.text_input('', key=f'skip_{idx}')
-        unique_parts.at[idx, "Feeder"] = feeder
-        unique_parts.at[idx, "Nozzle"] = nozzle
+        # Feeder kontrolü
+        try:
+            feeder_val = int(feeder) if feeder.strip() != '' else 1
+            if feeder_val < 1 or feeder_val > 100:
+                st.warning(f"Feeder {row['Comment']} / {row['Footprint']} için 1 ile 100 arasında olmalı.")
+                feeder_val = 1
+        except ValueError:
+            st.warning(f"Feeder {row['Comment']} / {row['Footprint']} için geçersiz değer. 1 olarak ayarlanacak.")
+            feeder_val = 1
+        unique_parts.at[idx, "Feeder"] = feeder_val
+        # Nozzle kontrolü
+        try:
+            nozzle_val = int(nozzle) if nozzle.strip() != '' else 0
+            if nozzle_val < 0 or nozzle_val > 6:
+                st.warning(f"Nozzle {row['Comment']} / {row['Footprint']} için 0 ile 6 arasında olmalı.")
+                nozzle_val = 0
+        except ValueError:
+            st.warning(f"Nozzle {row['Comment']} / {row['Footprint']} için geçersiz değer. 0 olarak ayarlanacak.")
+            nozzle_val = 0
+        unique_parts.at[idx, "Nozzle"] = nozzle_val
         # Pick Height
         try:
             pick_val = float(pick_height) if pick_height.strip() != "" else 0.0
