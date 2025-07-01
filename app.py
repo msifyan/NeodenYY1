@@ -174,23 +174,22 @@ if uploaded_file:
         unique_parts.at[idx, "Skip"] = skip_val
     # --- NOZZLE DEĞİŞİMİ FORMU ---
     nozzle_change_info = {}
-    nozzle_3_exists = (unique_parts['Nozzle'] == '3').any()
-    nozzle_4_exists = (unique_parts['Nozzle'] == '4').any()
+    nozzle_3_exists = (unique_parts['Nozzle'] == 3).any()
+    nozzle_4_exists = (unique_parts['Nozzle'] == 4).any()
     if nozzle_3_exists:
         st.subheader("Nozzle 3 için değişim bilgisi")
-        nozzle3_with = st.selectbox("Hangi nozzle ile değişecek?", ["1", "2"], key="noz3with")
-        nozzle3_drop = st.selectbox("Nereye bırakacak?", ["1", "2", "3"], key="noz3drop")
-        nozzle3_pick = st.selectbox("Nereden alacak?", ["1", "2", "3"], key="noz3pick")
+        nozzle3_with = st.selectbox("Hangi nozzle ile değişecek?", [1, 2], key="noz3with")
+        nozzle3_drop = st.selectbox("Nereye bırakacak?", [1, 2, 3], key="noz3drop")
+        nozzle3_pick = st.selectbox("Nereden alacak?", [1, 2, 3], key="noz3pick")
         nozzle_change_info[3] = {"with": nozzle3_with, "drop": nozzle3_drop, "pick": nozzle3_pick}
     if nozzle_4_exists:
         st.subheader("Nozzle 4 için değişim bilgisi")
-        nozzle4_with = st.selectbox("Hangi nozzle ile değişecek?", ["1", "2"], key="noz4with")
-        nozzle4_drop = st.selectbox("Nereye bırakacak?", ["1", "2", "3"], key="noz4drop")
-        nozzle4_pick = st.selectbox("Nereden alacak?", ["1", "2", "3"], key="noz4pick")
+        nozzle4_with = st.selectbox("Hangi nozzle ile değişecek?", [1, 2], key="noz4with")
+        nozzle4_drop = st.selectbox("Nereye bırakacak?", [1, 2, 3], key="noz4drop")
+        nozzle4_pick = st.selectbox("Nereden alacak?", [1, 2, 3], key="noz4pick")
         nozzle_change_info[4] = {"with": nozzle4_with, "drop": nozzle4_drop, "pick": nozzle4_pick}
 
     if st.button("Çıktı CSV'si Oluştur ve İndir"):
-        # Orijinal dataframe'e feeder/nozzle/pick height/place height/move speed/mode/skip ekle
         merged = df.merge(unique_parts, on=["Comment", "Footprint"], how="left")
         # NOZZLE SIRALAMA
         def nozzle_sort_key(row):
@@ -208,13 +207,13 @@ if uploaded_file:
                 return 99
         merged = merged.sort_values(by="Nozzle", key=lambda col: col.apply(lambda x: nozzle_sort_key({'Nozzle': x})))
         # --- SAYILARI GÜNCELLEMEDEN ÖNCE HESAPLA ---
-        nozzle_012_count = (merged["Nozzle"].isin(["0","1","2"])).sum()
-        nozzle_3_count = (merged["Nozzle"] == "3").sum()
+        nozzle_012_count = (merged["Nozzle"].astype(int).isin([0,1,2])).sum()
+        nozzle_3_count = (merged["Nozzle"].astype(int) == 3).sum()
         # NOZZLE DEĞİŞİMİ VARSA, NOZZLE DEĞERİNİ GÜNCELLE
         for nozzle_num in [3, 4]:
             if nozzle_num in nozzle_change_info:
                 with_val = nozzle_change_info[nozzle_num]["with"]
-                merged.loc[merged["Nozzle"] == str(nozzle_num), "Nozzle"] = with_val
+                merged.loc[merged["Nozzle"].astype(int) == nozzle_num, "Nozzle"] = with_val
         # Sütunları kullanıcı başlığına göre sırala
         merged = merged[[
             "Designator", "Comment", "Footprint", "Mid X", "Mid Y", "Rotation", "Nozzle", "Feeder", "Move Speed", "Pick Height", "Place Height", "Mode", "Skip"
