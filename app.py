@@ -49,10 +49,21 @@ def read_flexible_csv(uploaded_file):
     df = df.applymap(lambda x: x[1:-1] if isinstance(x, str) and x.startswith('"') and x.endswith('"') else x)
     return df
 
+def find_column(df, alternatives):
+    for alt in alternatives:
+        for col in df.columns:
+            if col.strip().lower() == alt.strip().lower():
+                return col
+    return None
+
 uploaded_file = st.file_uploader("CSV dosyanızı yükleyin", type=["csv"])
 
 if uploaded_file:
     df = read_flexible_csv(uploaded_file)
+    # Alternatif sütun isimlerini bul
+    x_col = find_column(df, ["Mid X", "Mid X(mm)", "Center-X(mm)"])
+    y_col = find_column(df, ["Mid Y", "Mid Y(mm)", "Center-Y(mm)"])
+    designator_col = find_column(df, ["Designator", "Ref"])
     # Boş satırları (özellikle başlık altındaki) filtrele
     df = df.dropna(subset=["Comment", "Footprint"])
     df = df[(df["Comment"].astype(str).str.strip() != "") & (df["Footprint"].astype(str).str.strip() != "")]
@@ -216,7 +227,7 @@ if uploaded_file:
                 merged.loc[merged["Nozzle"].astype(int) == nozzle_num, "Nozzle"] = with_val
         # Sütunları kullanıcı başlığına göre sırala
         merged = merged[[
-            "Designator", "Comment", "Footprint", "Mid X", "Mid Y", "Rotation", "Nozzle", "Feeder", "Move Speed", "Pick Height", "Place Height", "Mode", "Skip"
+            designator_col, "Comment", "Footprint", x_col, y_col, "Rotation", "Nozzle", "Feeder", "Move Speed", "Pick Height", "Place Height", "Mode", "Skip"
         ]]
         # Sütun adlarını başlıkla eşleştir
         merged.columns = [
