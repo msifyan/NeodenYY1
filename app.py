@@ -50,10 +50,12 @@ def read_flexible_csv(uploaded_file):
     return df
 
 def find_column(df, alternatives):
+    # Sütun adlarını normalize et
+    norm_cols = {col.strip().lower().replace(' ', '').replace('-', ''): col for col in df.columns}
     for alt in alternatives:
-        for col in df.columns:
-            if col.strip().lower() == alt.strip().lower():
-                return col
+        norm_alt = alt.strip().lower().replace(' ', '').replace('-', '')
+        if norm_alt in norm_cols:
+            return norm_cols[norm_alt]
     return None
 
 uploaded_file = st.file_uploader("CSV dosyanızı yükleyin", type=["csv"])
@@ -61,8 +63,8 @@ uploaded_file = st.file_uploader("CSV dosyanızı yükleyin", type=["csv"])
 if uploaded_file:
     df = read_flexible_csv(uploaded_file)
     # Alternatif sütun isimlerini bul
-    x_col = find_column(df, ["Mid X", "Mid X(mm)", "Center-X(mm)"])
-    y_col = find_column(df, ["Mid Y", "Mid Y(mm)", "Center-Y(mm)"])
+    x_col = find_column(df, ["Mid X", "Mid X(mm)", "Center-X(mm)", "MidX"])
+    y_col = find_column(df, ["Mid Y", "Mid Y(mm)", "Center-Y(mm)", "MidY"])
     designator_col = find_column(df, ["Designator", "Ref"])
     # Boş satırları (özellikle başlık altındaki) filtrele
     df = df.dropna(subset=["Comment", "Footprint"])
