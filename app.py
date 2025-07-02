@@ -28,8 +28,16 @@ def read_flexible_csv(uploaded_file):
     delimiter = ','
     if sample_str.count(';') > sample_str.count(','):
         delimiter = ';'
-    # DataFrame'i oku
-    df = pd.read_csv(uploaded_file, delimiter=delimiter, encoding=encoding, dtype=str, quotechar='"')
+    # DataFrame'i oku, encoding fallback ile
+    try:
+        df = pd.read_csv(uploaded_file, delimiter=delimiter, encoding=encoding, dtype=str, quotechar='"')
+    except UnicodeDecodeError:
+        uploaded_file.seek(0)
+        try:
+            df = pd.read_csv(uploaded_file, delimiter=delimiter, encoding='utf-8', dtype=str, quotechar='"')
+        except Exception:
+            uploaded_file.seek(0)
+            df = pd.read_csv(uploaded_file, delimiter=delimiter, encoding='latin1', dtype=str, quotechar='"')
     # Tüm hücrelerde baştaki ve sondaki boşlukları temizle
     df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
     # Koordinatlarda mm varsa temizle ve ondalık karakteri düzelt
