@@ -74,6 +74,21 @@ if uploaded_file:
     x_col = find_column(df, ["Mid X", "Mid X(mm)", "Center-X(mm)", "MidX"])
     y_col = find_column(df, ["Mid Y", "Mid Y(mm)", "Center-Y(mm)", "MidY"])
     designator_col = find_column(df, ["Designator", "Ref"])
+    # --- KOORDİNAT KALİBRASYON BÖLÜMÜ ---
+    st.markdown("---")
+    st.subheader("Koordinat Kalibrasyonu")
+    component_options = df[designator_col].dropna().unique().tolist()
+    selected_comp = st.selectbox("Referans olarak kullanılacak komponenti seçin:", component_options)
+    comp_row = df[df[designator_col] == selected_comp].iloc[0]
+    st.write(f"Dosyadaki X: {comp_row[x_col]}, Y: {comp_row[y_col]}")
+    user_x = st.number_input("Makinedeki X koordinatı", value=float(comp_row[x_col]), format="%.3f")
+    user_y = st.number_input("Makinedeki Y koordinatı", value=float(comp_row[y_col]), format="%.3f")
+    delta_x = user_x - float(comp_row[x_col])
+    delta_y = user_y - float(comp_row[y_col])
+    st.write(f"Tüm koordinatlara eklenecek X farkı: {delta_x:+.3f}, Y farkı: {delta_y:+.3f}")
+    # Koordinatları güncelle
+    df[x_col] = df[x_col].astype(float) + delta_x
+    df[y_col] = df[y_col].astype(float) + delta_y
     # Boş satırları (özellikle başlık altındaki) filtrele
     df = df.dropna(subset=["Comment", "Footprint"])
     df = df[(df["Comment"].astype(str).str.strip() != "") & (df["Footprint"].astype(str).str.strip() != "")]
@@ -88,7 +103,7 @@ if uploaded_file:
     unique_parts["Skip"] = 0
     st.write("### Komponent Listesi")
     # Kolon genişliklerini ayarlıyoruz: [parça, feeder, nozzle, pick, place, move, mode, skip]
-    cols = st.columns([4.5, 1, 1, 2, 2, 2, 1, 1])
+    cols = st.columns([4.5, 1.7, 1, 2, 2, 2, 1, 1])
     headers = [
         "Parça Bilgisi",
         "Feeder",
@@ -103,7 +118,7 @@ if uploaded_file:
         with cols[i]:
             st.markdown(f"<div style='text-align:center; font-weight:bold; white-space:nowrap; '>{h}</div>", unsafe_allow_html=True)
     for idx, row in unique_parts.iterrows():
-        cols = st.columns([4.5, 1, 1, 2, 2, 2, 1, 1])  # Parça bilgisi sütunu daha geniş
+        cols = st.columns([4.5, 1.7, 1, 2, 2, 2, 1, 1])  # Feeder genişliği %70 arttı
         with cols[0]:
             st.markdown(
                 f"<div style='display:flex; align-items:center; height:38px; padding-left:4px; margin-top:30px; font-weight:bold; border:1px solid #222; border-radius:4px; background-color:#111; color:#fff'>{row['Comment']} / {row['Footprint']}</div>",
