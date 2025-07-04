@@ -77,18 +77,24 @@ if uploaded_file:
     # --- KOORDİNAT KALİBRASYON BÖLÜMÜ ---
     st.markdown("---")
     st.subheader("Koordinat Kalibrasyonu")
-    component_options = df[designator_col].dropna().unique().tolist()
-    selected_comp = st.selectbox("Referans olarak kullanılacak komponenti seçin:", component_options)
-    comp_row = df[df[designator_col] == selected_comp].iloc[0]
-    st.write(f"Dosyadaki X: {comp_row[x_col]}, Y: {comp_row[y_col]}")
-    user_x = st.number_input("Makinedeki X koordinatı", value=float(comp_row[x_col]), format="%.3f")
-    user_y = st.number_input("Makinedeki Y koordinatı", value=float(comp_row[y_col]), format="%.3f")
-    delta_x = user_x - float(comp_row[x_col])
-    delta_y = user_y - float(comp_row[y_col])
-    st.write(f"Tüm koordinatlara eklenecek X farkı: {delta_x:+.3f}, Y farkı: {delta_y:+.3f}")
-    # Koordinatları güncelle
-    df[x_col] = df[x_col].astype(float) + delta_x
-    df[y_col] = df[y_col].astype(float) + delta_y
+    # Sadece dolu satırlardan komponent seçimi
+    valid_rows = df[(df[designator_col].astype(str).str.strip() != "") & (df[x_col].notna()) & (df[y_col].notna())]
+    component_options = valid_rows[designator_col].dropna().unique().tolist()
+    if component_options:
+        selected_comp = st.selectbox("Referans olarak kullanılacak komponenti seçin:", component_options)
+        comp_row = valid_rows[valid_rows[designator_col] == selected_comp].iloc[0]
+        st.write(f"Dosyadaki X: {comp_row[x_col]}, Y: {comp_row[y_col]}")
+        user_x = st.number_input("Makinedeki X koordinatı", value=float(comp_row[x_col]), format="%.3f")
+        user_y = st.number_input("Makinedeki Y koordinatı", value=float(comp_row[y_col]), format="%.3f")
+        delta_x = user_x - float(comp_row[x_col])
+        delta_y = user_y - float(comp_row[y_col])
+        st.write(f"Tüm koordinatlara eklenecek X farkı: {delta_x:+.3f}, Y farkı: {delta_y:+.3f}")
+        # Koordinatları güncelle
+        df[x_col] = df[x_col].astype(float) + delta_x
+        df[y_col] = df[y_col].astype(float) + delta_y
+    else:
+        st.warning("Geçerli bir komponent bulunamadı. Lütfen dosyanızı kontrol edin.")
+        st.stop()
     # Boş satırları (özellikle başlık altındaki) filtrele
     df = df.dropna(subset=["Comment", "Footprint"])
     df = df[(df["Comment"].astype(str).str.strip() != "") & (df["Footprint"].astype(str).str.strip() != "")]
